@@ -134,6 +134,13 @@ final class DisplayController {
         snapshot = current
         policy.observe(externalCount: current.externalCount)
         observeEmergency()
+        // A successful helper may have deferred while the lid was closing.
+        // Release recovery protection only after a fresh active-display read.
+        if current.builtinActive && !policy.wantsOff(externalCount: current.externalCount) && !forceRestore {
+            ownsOff = false
+            stopGuardian()
+            if quitCompletion != nil { finishQuit(true); return }
+        }
         render()
         guard !current.lidClosed else {
             if quitCompletion != nil { finishQuit(true, leaveGuardian: ownsOff) }
@@ -239,10 +246,13 @@ final class DisplayController {
             case .success:
                 self.message = nil
                 if enabled {
-                    let deferRecovery = self.snapshot?.lidClosed == true || self.sleeping
-                    if !deferRecovery { self.ownsOff = false; self.stopGuardian() }
                     self.forceRestore = false
-                    if self.quitCompletion != nil { self.finishQuit(true, leaveGuardian: deferRecovery); return }
+                    // refresh() confirms current topology before stopping the
+                    // guardian or finishing quit; the lid may have moved.
+                    if self.sleeping && self.quitCompletion != nil {
+                        self.finishQuit(true, leaveGuardian: self.ownsOff)
+                        return
+                    }
                 } else {
                     self.ownsOff = true
                     if self.guardian?.isRunning != true {
