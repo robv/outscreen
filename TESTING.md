@@ -2,7 +2,7 @@
 
 ## Automated checks
 
-Run `make test`. This checks the intent policy (manual, auto, unplug, reconnect, and emergency override), strict C compilation, and bundle metadata. `make build` compiles and signs the full native app and verifies its local signature.
+Run `make test`. This checks the intent policy (manual, auto, unplug, reconnect, and emergency override), recovery coordination, strict C compilation, bundle metadata, brightness-key decoding and full-press routing, modifier passthrough, brightness step bounds, and invalid brightness API inputs. `make build` compiles and signs the full native app and verifies its local signature.
 
 Tests do not change real displays. Actual display changes require a logged-in macOS desktop session with supported hardware.
 
@@ -20,6 +20,9 @@ Quit other utilities that automatically manage display connections before testin
 8. Quit while the lid is closed, unplug the monitor, then open the lid. Verify the guardian restores the panel.
 9. Enable Launch at Login, approve in System Settings if requested, log out/in or restart, and verify the icon and automatic preference return. Turn it back off and repeat if testing removal.
 10. After every macOS upgrade, repeat the off/on, unplug, and sleep tests before leaving automatic switching enabled.
+11. With the built-in off and a Studio Display (or another monitor supporting native brightness) connected, press and hold each brightness key. Verify the monitor changes brightness and the indicator appears there. If requested, use **Allow Brightness Keys…** to grant Accessibility, then repeat.
+12. Try Shift–Option + brightness for fine adjustments. Verify Control + brightness still uses macOS, Option + brightness opens Display Settings, and volume/playback keys behave normally. Change modifiers during a held brightness key and release it; no key should stay stuck.
+13. Turn the built-in on, then off again. Verify brightness keys return to the built-in when it is on and the external when it is off. Disable the brightness option and verify native behavior resumes. Repeat after sleep/wake and reconnection.
 
 ## Local test record
 
@@ -38,6 +41,9 @@ Passed:
 - Toggle through the running app followed by normal quit: built-in restored before app exit.
 - Simulated menu-app crash while off: independent guardian restored the built-in display.
 - Independent CLI restore.
+- Brightness decoder, modifier, hold/release routing, value-bound, and C API input-guard tests.
+- Live native brightness roundtrip on Apple Studio Display with the built-in off: read 0, set one step to 0.0625, read it back, restore 0, and verify restoration. The built-in display topology was unchanged.
+- Installed signed version 0.2.0, verified app launch and external-brightness target detection, and returned the built-in to its prior off state. On this Mac, the media-event tap correctly reports that Accessibility approval is needed.
 
 Still requires a person:
 
@@ -45,5 +51,6 @@ Still requires a person:
 - Sleep/wake, closed-lid quit/reopen, and logout/reboot launch-at-login persistence.
 - Physical Control–Option–Command–R keypress. The UI automation tool's targeted keypress did not trigger the global shortcut, so this is not claimed as verified.
 - Visual menu inspection: the native UI inspector times out on this menu-only app (no standard app window). The installed app launches and its controller responds to commands.
+- Physical brightness-key delivery, held-key behavior, and indicator appearance. The live API roundtrip above verifies monitor control, not physical keyboard input.
 
 The initial live test caught an incorrect IORegistry power assertion: `CurrentPowerState` remains 1 even after the panel-off request succeeds. It is now diagnostic only. A quit test also caught and fixed an AppKit nested-run-loop issue with `.terminateLater`; the app now cancels the initial quit, restores asynchronously, then terminates normally.

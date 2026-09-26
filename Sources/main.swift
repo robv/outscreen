@@ -11,7 +11,7 @@ let savedID = preferences.string(forKey: "CachedDisplaySession") == RecoveryCoor
 let cachedID = UInt32(option("--builtin-id") ?? "") ?? savedID
 
 if arguments.contains("--version") {
-    print("Outscreen 0.1.0")
+    print("Outscreen \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development")")
     exit(0)
 }
 if arguments.contains("--status") {
@@ -23,6 +23,28 @@ if arguments.contains("--status") {
                                     "backend": String(cString: OSBackendVersion())]
         let data = try JSONSerialization.data(withJSONObject: values, options: [.prettyPrinted, .sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+        exit(0)
+    } catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }
+}
+if arguments.contains("--brightness-status") || arguments.contains("--brightness-set") {
+    do {
+        let id = OSPreferredBrightnessDisplay()
+        guard id != 0 else { throw DisplayFailure("No supported external brightness target. The built-in screen must be off.") }
+        var value: Float = 0
+        var buffer = [CChar](repeating: 0, count: 512)
+        if let requested = option("--brightness-set") {
+            guard let level = Float(requested), level.isFinite, (0...1).contains(level) else {
+                throw DisplayFailure("Brightness must be a number from 0 to 1.")
+            }
+            guard OSSetExternalBrightness(id, level, &buffer, buffer.count) == 0 else {
+                throw DisplayFailure(String(cString: buffer))
+            }
+        }
+        guard OSReadExternalBrightness(id, &value, &buffer, buffer.count) == 0 else {
+            throw DisplayFailure(String(cString: buffer))
+        }
+        let result: [String: Any] = ["displayID": id, "brightness": value]
+        print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
         exit(0)
     } catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }
 }
@@ -68,7 +90,7 @@ if arguments.contains("--restore") || arguments.contains("--set") {
     } catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }
 }
 if !arguments.isEmpty {
-    print("Outscreen\n  --status   Read current display status\n  --restore  Restore built-in display, even if the app has crashed\n  --toggle   Toggle through the running menu app\n  --quit     Quit the running menu app and restore\n  --version  Show version")
+    print("Outscreen\n  --status   Read current display status\n  --restore  Restore built-in display, even if the app has crashed\n  --toggle   Toggle through the running menu app\n  --quit     Quit the running menu app and restore\n  --brightness-status  Read external brightness while internal is off\n  --brightness-set N   Set native external brightness (0...1)\n  --version  Show version")
     exit(arguments.contains("--help") ? 0 : 2)
 }
 

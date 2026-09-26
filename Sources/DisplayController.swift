@@ -28,6 +28,7 @@ final class DisplayController {
     private var observations: [NSObjectProtocol] = []
     private var guardian: Process?
     private var hotkey: GlobalHotKey?
+    private let brightnessKeys = BrightnessKeys()
     private var quitCompletion: ((Bool) -> Void)?
     private let executable = Bundle.main.executableURL!
     private let statusQueue = DispatchQueue(label: "com.daymoon.outscreen.status", qos: .userInitiated)
@@ -36,6 +37,8 @@ final class DisplayController {
         onToggle: { [weak self] in self?.toggle() },
         onAutomatic: { [weak self] in self?.setAutomatic($0) },
         onRestore: { [weak self] in self?.emergencyRestore() },
+        onBrightnessToggle: { [weak self] in self?.brightnessKeys.setEnabled($0) },
+        onBrightnessPermission: { [weak self] in self?.brightnessKeys.requestPermission() },
         onQuit: { NSApplication.shared.terminate(nil) })
 
     func start() {
@@ -45,6 +48,7 @@ final class DisplayController {
         policy.automatic = preferences.bool(forKey: "AutomaticSwitching")
         try? FileManager.default.removeItem(at: RecoveryCoordinator.directory.appendingPathComponent("sleeping"))
         _ = menu
+        brightnessKeys.start { [weak self] state in self?.menu.updateBrightness(state) }
         do { hotkey = try GlobalHotKey { [weak self] in self?.emergencyRestore() } }
         catch { message = "Emergency shortcut unavailable: \(error.localizedDescription)" }
         CGDisplayRegisterReconfigurationCallback(displayChanged, Unmanaged.passUnretained(self).toOpaque())
@@ -52,6 +56,7 @@ final class DisplayController {
         observations.append(center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
             DispatchQueue.main.async {
                 self?.sleeping = true
+                self?.brightnessKeys.invalidateTarget()
                 self?.stateGeneration += 1
                 try? Data().write(to: RecoveryCoordinator.directory.appendingPathComponent("sleeping"), options: .atomic)
             }
@@ -75,6 +80,7 @@ final class DisplayController {
     }
 
     func screenEvent(delay: TimeInterval = 0.4) {
+        brightnessKeys.invalidateTarget()
         debounce?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
@@ -132,6 +138,7 @@ final class DisplayController {
             preferences.set(RecoveryCoordinator.sessionID, forKey: "CachedDisplaySession")
         }
         snapshot = current
+        brightnessKeys.refreshTarget()
         policy.observe(externalCount: current.externalCount)
         observeEmergency()
         // A successful helper may have deferred while the lid was closing.
@@ -206,6 +213,7 @@ final class DisplayController {
 
     private func change(enabled: Bool) {
         guard !busy else { return }
+        brightnessKeys.invalidateTarget()
         busy = true
         stateGeneration += 1
         pendingDisable = !enabled

@@ -4,6 +4,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "BrightnessBridge.h"
 
 #ifdef __cplusplus
 extern "C" {

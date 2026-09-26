@@ -11,3 +11,11 @@ plutil -lint Resources/Info.plist
 printf 'PASS: backend strict compile and app metadata\n'
 
 ./scripts/test-recovery.sh
+
+xcrun swiftc -swift-version 5 -module-cache-path "$PWD/.build/module-cache" \
+  Sources/BrightnessKeyPolicy.swift Tests/BrightnessKeyTests.swift -o .build/brightness-key-tests
+.build/brightness-key-tests
+xcrun clang -std=c11 -Wall -Wextra -Werror -I Sources \
+  Sources/BrightnessBridge.c Tests/BrightnessBridgeTests.c \
+  -framework CoreGraphics -framework CoreFoundation -framework IOKit -o .build/brightness-bridge-tests
+.build/brightness-bridge-tests

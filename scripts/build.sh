@@ -8,11 +8,13 @@ OUTSCREEN_APP="$OUTSCREEN_BUILD/Outscreen.app"
 mkdir -p "$OUTSCREEN_BUILD/module-cache" "$OUTSCREEN_APP/Contents/MacOS" "$OUTSCREEN_APP/Contents/Resources"
 export CLANG_MODULE_CACHE_PATH="$OUTSCREEN_BUILD/module-cache"
 export SWIFT_MODULECACHE_PATH="$OUTSCREEN_BUILD/module-cache"
-xcrun clang -std=c11 -Wall -Wextra -Werror -O2 -mmacosx-version-min=13.0 \
-  -c Sources/DisplayBridge.c -o "$OUTSCREEN_BUILD/DisplayBridge.o"
+for source in Sources/*Bridge.c; do
+  object="$OUTSCREEN_BUILD/$(basename "${source%.c}").o"
+  xcrun clang -std=c11 -Wall -Wextra -Werror -O2 -mmacosx-version-min=13.0 -c "$source" -o "$object"
+done
 xcrun swiftc -swift-version 5 -O -target "$OUTSCREEN_ARCH-apple-macos13.0" \
   -module-cache-path "$OUTSCREEN_BUILD/module-cache" \
-  -import-objc-header Sources/DisplayBridge.h Sources/*.swift "$OUTSCREEN_BUILD/DisplayBridge.o" \
+  -import-objc-header Sources/DisplayBridge.h Sources/*.swift "$OUTSCREEN_BUILD/DisplayBridge.o" "$OUTSCREEN_BUILD/BrightnessBridge.o" \
   -framework AppKit -framework CoreGraphics -framework CoreFoundation -framework IOKit \
   -framework Carbon -framework ServiceManagement -o "$OUTSCREEN_APP/Contents/MacOS/Outscreen"
 cp Resources/Info.plist "$OUTSCREEN_APP/Contents/Info.plist"

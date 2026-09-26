@@ -22,6 +22,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let automaticItem = NSMenuItem()
     private let pausedItem = NSMenuItem()
     private let messageItem = NSMenuItem()
+    private let brightnessItem = NSMenuItem()
+    private let brightnessPermissionItem = NSMenuItem()
+    private let brightnessMessageItem = NSMenuItem()
+    private var brightnessEnabled = true
+    private let onBrightnessToggle: (Bool) -> Void
+    private let onBrightnessPermission: () -> Void
     private let loginItem = NSMenuItem()
     private let loginSettingsItem = NSMenuItem()
     private let loginMessageItem = NSMenuItem()
@@ -36,11 +42,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         onToggle: @escaping () -> Void,
         onAutomatic: @escaping (Bool) -> Void,
         onRestore: @escaping () -> Void,
+        onBrightnessToggle: @escaping (Bool) -> Void,
+        onBrightnessPermission: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
         self.onToggle = onToggle
         self.onAutomatic = onAutomatic
         self.onRestore = onRestore
+        self.onBrightnessToggle = onBrightnessToggle
+        self.onBrightnessPermission = onBrightnessPermission
         self.onQuit = onQuit
         super.init()
 
@@ -71,6 +81,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         restoreItem.keyEquivalent = "r"
         restoreItem.keyEquivalentModifierMask = [.control, .option, .command]
         restoreItem.toolTip = "Emergency restore works across apps: Control–Option–Command–R."
+        menu.addItem(.separator())
+
+        addAction(brightnessItem, title: "Use Brightness Keys for External Display", action: #selector(toggleBrightnessKeys))
+        brightnessItem.state = .on
+        brightnessItem.toolTip = "Redirect brightness keys to a supported external display while the built-in screen is off. Shift–Option makes smaller changes."
+        addAction(brightnessPermissionItem, title: "Allow Brightness Keys…", action: #selector(allowBrightnessKeys))
+        brightnessPermissionItem.isHidden = true
+        addInformation(brightnessMessageItem)
+        brightnessMessageItem.isHidden = true
         menu.addItem(.separator())
 
         addAction(loginItem, title: "Launch at Login", action: #selector(toggleLaunchAtLogin))
@@ -114,6 +133,18 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         statusItem.button?.toolTip = "Outscreen — \(displayStatus.title.lowercased())"
         statusItem.button?.setAccessibilityValue(displayStatus.title)
     }
+
+    func updateBrightness(_ state: BrightnessKeyState) {
+        brightnessEnabled = state.enabled
+        brightnessItem.state = state.enabled ? .on : .off
+        brightnessPermissionItem.isHidden = !state.enabled || !state.needsPermission
+        brightnessMessageItem.isHidden = state.message?.isEmpty != false
+        brightnessMessageItem.title = shortMessage(state.message ?? "")
+        brightnessMessageItem.toolTip = state.message
+    }
+
+    @objc private func toggleBrightnessKeys() { onBrightnessToggle(!brightnessEnabled) }
+    @objc private func allowBrightnessKeys() { onBrightnessPermission() }
 
     func menuWillOpen(_ menu: NSMenu) {
         // System Settings may have changed the registration while we were idle.

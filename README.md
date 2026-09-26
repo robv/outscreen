@@ -2,12 +2,13 @@
 
 Use your external monitor with your MacBook open.
 
-Outscreen is a small, native macOS menu bar app with four controls:
+Outscreen is a small, native macOS menu bar app:
 
 - Turn the built-in display off or on.
 - Optionally switch automatically when a physical external monitor connects.
 - Restore on unplug or quit, with **Control–Option–Command–R** for emergency restoration.
 - Optionally launch at login.
+- Use the Mac's brightness keys for a supported external monitor while the built-in screen is off.
 
 Automatic switching and launch at login start **off**. The app has no network calls, analytics, accounts, or dependencies beyond macOS frameworks.
 
@@ -45,6 +46,14 @@ Enable **Automatically Switch on Monitor Connection** for automatic operation. M
 
 Enable **Launch at Login** from the menu. If macOS requires approval, the menu includes a link to Login Items. Rebuilding an ad-hoc signed app can invalidate its login registration; check this setting after installing an update.
 
+### Brightness keys
+
+**Use Brightness Keys for External Display** starts on. While the built-in display is off, the brightness keys adjust the main supported external display (or the first supported external if the main display lacks brightness control). Hold **Shift–Option** for smaller steps. An on-screen indicator shows the new level. When the built-in display is on, normal macOS key behavior resumes.
+
+This uses the monitor's native hardware brightness, including Apple Studio Display. Generic monitors that require DDC/CI are not supported by this feature. Other media keys and macOS modifier shortcuts pass through; **Control + Brightness Up/Down** remains available as Apple's native external-display shortcut.
+
+If the menu shows **Allow Brightness Keys…**, select it and enable Outscreen in System Settings → Privacy & Security → Accessibility. Outscreen only requests this permission after that click. Some macOS versions allow the media-only event tap without additional permission. The tap subscribes to system media events, never ordinary typing, and does not record keys. Permission takes effect automatically once granted.
+
 ## Recovery
 
 Press **Control–Option–Command–R** from any app, or choose **Restore Built-in Display** from the menu. Shortcut conflicts appear in the menu as an error.
@@ -67,7 +76,9 @@ The app uses AppKit, CoreGraphics, IOKit, Carbon hotkeys, and ServiceManagement.
 
 `--status` prints a read-only JSON snapshot. `--toggle` and `--quit` route through the running menu app, including its recovery protection. `--version` prints the app version. `--set` and `--guardian` are internal commands used by the app, not supported automation interfaces.
 
-The low-level backend uses private `SkyLight` and `IOMobileFramebuffer` APIs to remove the built-in screen from the desktop and power its panel down. Their behavior is not an Apple compatibility guarantee. Test upgrades on real hardware before relying on automation.
+`--brightness-status` reads the selected external monitor's brightness; `--brightness-set 0.5` sets it between 0 and 1. Both require the built-in display to be off and a supported active external monitor. `./scripts/brightness-smoke.py --run` performs an explicit, reversible one-step hardware brightness test. It restores the original value and is never run by `make test`.
+
+The low-level backend uses private `SkyLight` and `IOMobileFramebuffer` APIs to remove the built-in screen from the desktop and power its panel down, and `DisplayServices` for native external brightness. Their behavior is not an Apple compatibility guarantee. Test upgrades on real hardware before relying on automation.
 
 See [TESTING.md](TESTING.md) for checks that require physical interaction. Private API signatures and Apple Silicon behavior were researched in [Clamless](https://github.com/TCXM/clamless); Outscreen's implementation is original code.
 
